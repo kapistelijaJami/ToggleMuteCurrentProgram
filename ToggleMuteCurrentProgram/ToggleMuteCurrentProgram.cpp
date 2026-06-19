@@ -3,11 +3,14 @@
 #include <psapi.h>
 #include <fstream>
 #include <string>
+#include <vector>
+#include <algorithm>
 #include "Audio.h"
 
 DWORD GetFocusedProcessId();
 std::wstring GetProcessName(DWORD processId);
-std::wstring LoadTargetProcessName(const std::string& filePath);
+std::vector<std::wstring> LoadTargetProcessNames(const std::string& filePath);
+bool IsTargetProcess(const std::wstring& processName, const std::vector<std::wstring>& targets);
 std::string GetConfigPath();
 
 int main()
@@ -17,14 +20,12 @@ int main()
 
     bool down = false;
     int toggleKey = VK_SUBTRACT;
-    std::wstring targetProcessName = LoadTargetProcessName(GetConfigPath());
+    std::vector<std::wstring> targetProcessNames = LoadTargetProcessNames(GetConfigPath());
 
-    if (targetProcessName.length() == 0) {
+    if (targetProcessNames.size() == 0) {
         std::cout << "Add an executable name of the process you want to toggle mute to config.txt file!" << std::endl;
         return 0;
     }
-
-    std::wcout << "Target: " << targetProcessName << std::endl;
 
     while (true) {
         SHORT state = GetAsyncKeyState(toggleKey);
@@ -36,7 +37,7 @@ int main()
 
             std::wcout << processName << " (" << focusedProcessID << ")" << std::endl;
 
-            if (processName == targetProcessName) {
+            if (IsTargetProcess(processName, targetProcessNames)) {
                 toggleMute(focusedProcessID);
             }
 
@@ -79,18 +80,36 @@ std::wstring GetProcessName(DWORD processId) {
     return L"<unknown>";
 }
 
-std::wstring LoadTargetProcessName(const std::string& filePath) {
+std::vector<std::wstring> LoadTargetProcessNames(const std::string& filePath) {
     std::ifstream file(filePath);
+
+    std::vector<std::wstring> names;
+
     if (!file.is_open()) {
-        return L""; // or handle error
+        return names;
     }
 
     std::string line;
-    std::getline(file, line);
+    while (std::getline(file, line)) {
+        if (line.empty()) {
+            continue;
+        }
 
-    file.close();
+        // Remove Windows CR if file uses CRLF
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
 
-    return std::wstring(line.begin(), line.end());
+        names.push_back(
+            std::wstring(line.begin(), line.end())
+        );
+    }
+
+    return names;
+}
+
+bool IsTargetProcess(const std::wstring& processName, const std::vector<std::wstring>& targets) {
+    return std::find(targets.begin(), targets.end(), processName) != targets.end();
 }
 
 std::string GetExeDirectory() {

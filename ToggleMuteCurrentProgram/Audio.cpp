@@ -64,8 +64,13 @@ void toggleMute(DWORD processId) {
             muted = !muted;
 
             simpleAudioVol->SetMute(muted, NULL);
-            std::cout << "Muted: " << muted << '\n';
-
+            if (muted) {
+                std::cout << "Muted" << '\n';
+            }
+            else {
+                std::cout << "Unmuted" << '\n';
+            }
+            
             simpleAudioVol->Release();
         }
 
